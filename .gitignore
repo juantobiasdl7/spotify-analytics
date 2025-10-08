@@ -1,0 +1,17 @@
+# Credenciales
+config.py
+*.env
+
+# Python
+pycache/
+*.pyc
+venv/
+.venv/
+
+# Archivos generados
+*.csv
+reportes/
+
+# IDEs
+.vscode/
+.idea/
