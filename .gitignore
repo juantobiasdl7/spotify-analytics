@@ -1,6 +1,7 @@
 # Credenciales
 config.py
 *.env
+config_template.py
 
 # Python
 pycache/
