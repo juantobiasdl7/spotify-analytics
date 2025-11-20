@@ -12,6 +12,7 @@ venv/
 # Archivos generados
 *.csv
 reportes/
+.cache
 
 # IDEs
 .vscode/
