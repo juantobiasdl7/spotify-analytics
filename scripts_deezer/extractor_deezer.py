@@ -44,7 +44,7 @@ def obtener_albumes(artist_id):
 def obtener_top_canciones(artist_id):
     """Obtiene las 5 canciones más escuchadas de un artista."""
     url = f"https://api.deezer.com/artist/{artist_id}/top"
-    parametros = {'limit': 5} # Limitamos a los 5 primeros resultados
+    parametros = {'limit': 5}
     
     try:
         response = requests.get(url, params=parametros)
@@ -65,26 +65,37 @@ def obtener_top_canciones(artist_id):
         print(f"Error al obtener las canciones: {e}")
         return []
 
-# --- Bloque Principal ---
+# --- Bloque Principal Modificado ---
 if __name__ == "__main__":
-    nombre = "Queen"
-    
-    print(f"Procesando información de: {nombre}...")
-    
-    # 1. Obtener ID
-    id_artista = obtener_id_artista(nombre)
-    
-    if id_artista:
-        print(f"\nID del artista en Deezer: {id_artista}")
+    # El ciclo se repetirá exactamente 10 veces
+    for i in range(1, 11):
+        print(f"\n==============================")
+        print(f"   BÚSQUEDA {i} DE 10")
+        print(f"==============================")
         
-        # 2. Obtener Álbumes
-        albumes = obtener_albumes(id_artista)
-        print(f"\n--- Álbumes Encontrados: {len(albumes)} ---")
-        for i, album in enumerate(albumes[:3], 1): # Mostramos los 3 primeros para no saturar la consola
-            print(f"{i}. {album['titulo']} | Lanzamiento: {album['fecha_lanzamiento']}")
+        nombre = input("Ingresa el nombre del artista que deseas buscar: ")
+        
+        print(f"\nProcesando información de: {nombre}...")
+        
+        # 1. Obtener ID
+        id_artista = obtener_id_artista(nombre)
+        
+        if id_artista:
+            print(f"ID del artista en Deezer: {id_artista}")
             
-        # 3. Obtener Top 5 canciones
-        canciones = obtener_top_canciones(id_artista)
-        print("\n--- Top 5 Canciones Más Escuchadas ---")
-        for i, cancion in enumerate(canciones, 1):
-            print(f"{i}. {cancion['titulo']} | Duración: {cancion['duracion_segundos']}s | Popularidad: {cancion['reproducciones']}")
+            # 2. Obtener Álbumes
+            albumes = obtener_albumes(id_artista)
+            print(f"\n--- Álbumes Encontrados: {len(albumes)} ---")
+            # Mostramos los 3 primeros
+            for j, album in enumerate(albumes[:3], 1):
+                print(f"{j}. {album['titulo']} | Lanzamiento: {album['fecha_lanzamiento']}")
+                
+            # 3. Obtener Top 5 canciones
+            canciones = obtener_top_canciones(id_artista)
+            print("\n--- Top 5 Canciones Más Escuchadas ---")
+            for j, cancion in enumerate(canciones, 1):
+                print(f"{j}. {cancion['titulo']} | Duración: {cancion['duracion_segundos']}s | Popularidad: {cancion['reproducciones']}")
+        
+        print("\n" + "-"*30)
+
+    print("\nHas completado las 10 búsquedas programadas.")
