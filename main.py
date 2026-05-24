@@ -1,101 +1,145 @@
 import requests
+import datetime
+import csv
+import sys
+import os
 
-def obtener_id_artista(nombre_artista):
-    """Busca el ID del artista en Deezer usando el nombre."""
-    url = "https://api.deezer.com/search/artist"
-    parametros = {'q': nombre_artista}
-    
+
+def obtener_playlist_object(id_playlist: int, num: int = 1) -> dict:
+    """Convierte un Objeto Playlist a un diccionario."""
+
+    url = f"https://api.deezer.com/playlist/{id_playlist}"
+    parametros = {"limit": num}
+
     try:
         response = requests.get(url, params=parametros)
         response.raise_for_status()
-        datos = response.json()
-        
-        if datos['data']:
-            return datos['data'][0]['id']
-        else:
-            print(f"Artista '{nombre_artista}' no encontrado.")
-            return None
+        playlist_object = response.json()
     except Exception as e:
-        print(f"Error al buscar el artista: {e}")
-        return None
+        print(f"Error al obtener canciones de playlist: type{e}, {e}")
+    else:
+        pl_title = playlist_object["title"]
+        print(f"Objeto Playlist '{pl_title}' correctamente generado.")
+        return playlist_object
+    finally:
+        print(f"Función '{sys._getframe().f_code.co_name}' finalizada.\n")
 
-def obtener_albumes(artist_id):
-    """Obtiene la lista de álbumes de un artista mediante su ID."""
-    url = f"https://api.deezer.com/artist/{artist_id}/albums"
-    
+
+def generar_lista_tracks(playlist_object: dict) -> list:
+    """Genera una lista compuesta por la descripción de la Playlist y las canciones incluidas en la misma."""
+    tracks_full_info = []
     try:
-        response = requests.get(url)
-        response.raise_for_status()
-        datos = response.json()
-        
-        lista_albumes = []
-        if 'data' in datos:
-            for album in datos['data']:
-                lista_albumes.append({
-                    "id_album": album['id'],
-                    "titulo": album['title'],
-                    "fecha_lanzamiento": album.get('release_date', 'Desconocida')
-                })
-        return lista_albumes
-    except Exception as e:
-        print(f"Error al obtener álbumes: {e}")
-        return []
+        # Información de playlist.
+        playlist_info = {
+            "pl_id": playlist_object["id"],
+            "pl_title": playlist_object["title"],
+            "pl_description": playlist_object["description"],
+            "pl_nb_track_objects": playlist_object["nb_tracks"],
+            "pl_link": playlist_object["link"],
+            "pl_creator_name": playlist_object["creator"]["name"],
+        }
 
-def obtener_top_canciones(artist_id):
-    """Obtiene las 5 canciones más escuchadas de un artista."""
-    url = f"https://api.deezer.com/artist/{artist_id}/top"
-    parametros = {'limit': 5}
-    
+        # Información de canciones de playlist
+        tracks_object = playlist_object["tracks"]["data"]
+        track_list = []
+        tr_header = [
+            "tr_daily_rank",
+            "tr_id",
+            "tr_title",
+            "tr_duration",
+            "tr_explicit",
+            "tr_time_add",
+            "tr_artist_name",
+            "tr_album_title",
+        ]
+        track_list.append(tr_header)
+
+        for i, track_object in enumerate(tracks_object):
+            tr_daily_rank = i + 1
+            tr_id = track_object["id"]
+            tr_title = track_object["title"]
+            tr_duration = track_object["duration"]
+            tr_explicit = track_object["explicit_lyrics"]
+            tr_time_add = track_object["time_add"]
+            tr_artist_name = track_object["artist"]["name"]
+            tr_album_title = track_object["album"]["title"]
+
+            track_row = [
+                tr_daily_rank,
+                tr_id,
+                tr_title,
+                tr_duration,
+                tr_explicit,
+                tr_time_add,
+                tr_artist_name,
+                tr_artist_name,
+                tr_album_title,
+            ]
+            track_list.append(track_row)
+    except TypeError:
+        print(f"El argumento playlist_object no es del tipo 'dict': {TypeError}")
+    except Exception as e:
+        print(f"Error al obtener carcaterísticas de la playlist: {type(e)}, {e}")
+    else:
+        tracks_full_info.append(playlist_info)
+        tracks_full_info.extend(track_list)
+
+        print("Descripción de la Playlist generada exitosamente:")
+        for k, v in playlist_info.items():
+            print(f"\t{k}: {v}")
+        print(f"Lista con {tr_daily_rank} canciones creada correctamente.")
+        return tracks_full_info
+    finally:
+        print(f"Función '{sys._getframe().f_code.co_name}' finalizada.\n")
+
+
+def lista_a_csv(
+    lista_de_elementos: list, file_name: str = "Lista", folder_name: str = ""
+):
+    """Crea un archivo CSV a partir de una lista. Opcionalmente se puede especificar la ruta de almacenamiento"""
+
     try:
-        response = requests.get(url, params=parametros)
-        response.raise_for_status()
-        datos = response.json()
-        
-        lista_canciones = []
-        if 'data' in datos:
-            for track in datos['data']:
-                lista_canciones.append({
-                    "id_track": track['id'],
-                    "titulo": track['title'],
-                    "duracion_segundos": track['duration'],
-                    "reproducciones": track.get('rank', 'N/A')
-                })
-        return lista_canciones
-    except Exception as e:
-        print(f"Error al obtener las canciones: {e}")
-        return []
+        # Fecha de creación de archivo csv.
+        if not isinstance(lista_de_elementos, list):
+            raise TypeError
 
-# --- Bloque Principal Modificado ---
+        # Crear la carpeta si no existe
+        if folder_name:
+            os.makedirs(folder_name, exist_ok=True)
+            print(f"\nLa carpeta {folder_name} fue creada exitosamente.")
+
+        csv_creation_date_utc = datetime.datetime.now(tz=datetime.UTC).strftime(
+            "%Y-%m-%d-%H-%M%z"
+        )
+        utc_file_path = f"{folder_name}/{file_name}({csv_creation_date_utc}).csv"
+        with open(file=utc_file_path, mode="w", newline="", encoding="utf-8") as file:
+            writer = csv.writer(file)
+            for elemento in lista_de_elementos:
+                if isinstance(elemento, dict):
+                    writer.writerow(list(elemento.items()))
+                else:
+                    writer.writerow(elemento)
+    except TypeError:
+        print(f"\nEl argumento lista_de_elementos no es del tipo 'list':{TypeError}")
+    except Exception as e:
+        print(f"\nError al crear archivo csv: type{e}, {e}")
+    else:
+        print(f"\nEl archivo '{utc_file_path}' ha sido creado.")
+    finally:
+        print(f"Función '{sys._getframe().f_code.co_name}' finalizada.\n")
+
+
 if __name__ == "__main__":
-    # El ciclo se repetirá exactamente 10 veces
-    for i in range(1, 11):
-        print(f"\n==============================")
-        print(f"   BÚSQUEDA {i} DE 10")
-        print(f"==============================")
-        
-        nombre = input("Ingresa el nombre del artista que deseas buscar: ")
-        
-        print(f"\nProcesando información de: {nombre}...")
-        
-        # 1. Obtener ID
-        id_artista = obtener_id_artista(nombre)
-        
-        if id_artista:
-            print(f"ID del artista en Deezer: {id_artista}")
-            
-            # 2. Obtener Álbumes
-            albumes = obtener_albumes(id_artista)
-            print(f"\n--- Álbumes Encontrados: {len(albumes)} ---")
-            # Mostramos los 3 primeros
-            for j, album in enumerate(albumes[:3], 1):
-                print(f"{j}. {album['titulo']} | Lanzamiento: {album['fecha_lanzamiento']}")
-                
-            # 3. Obtener Top 5 canciones
-            canciones = obtener_top_canciones(id_artista)
-            print("\n--- Top 5 Canciones Más Escuchadas ---")
-            for j, cancion in enumerate(canciones, 1):
-                print(f"{j}. {cancion['titulo']} | Duración: {cancion['duracion_segundos']}s | Popularidad: {cancion['reproducciones']}")
-        
-        print("\n" + "-"*30)
-
-    print("\nHas completado las 10 búsquedas programadas.")
+    id_playlist_top_50_mexico = "1111142361"
+    playlist_object_top_50 = obtener_playlist_object(
+        id_playlist=id_playlist_top_50_mexico, num=10
+    )
+    top_50_tracks_list = generar_lista_tracks(playlist_object=playlist_object_top_50)
+    print(
+        "\nGenerando CSV de Top 50 canciones diarias en Deezer mas escuchadas en México"
+    )
+    lista_a_csv(
+        lista_de_elementos=top_50_tracks_list,
+        file_name="top-50-mexico-daily-by-deezer",
+        folder_name="csv-files",
+    )
