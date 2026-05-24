@@ -3,6 +3,7 @@ import datetime
 import csv
 import sys
 import os
+from fpdf import FPDF
 
 
 def obtener_playlist_object(id_playlist: int, num: int = 1) -> dict:
@@ -60,10 +61,11 @@ def generar_lista_tracks(playlist_object: dict) -> list:
             tr_title = track_object["title"]
             tr_duration = track_object["duration"]
             tr_explicit = track_object["explicit_lyrics"]
-            tr_time_add = track_object["time_add"]
+            tr_time_add = track_object.get("time_add", "")
             tr_artist_name = track_object["artist"]["name"]
             tr_album_title = track_object["album"]["title"]
 
+            # Corregido: se eliminó un tr_artist_name duplicado que tenías en tu lista original
             track_row = [
                 tr_daily_rank,
                 tr_id,
@@ -71,7 +73,6 @@ def generar_lista_tracks(playlist_object: dict) -> list:
                 tr_duration,
                 tr_explicit,
                 tr_time_add,
-                tr_artist_name,
                 tr_artist_name,
                 tr_album_title,
             ]
@@ -95,15 +96,13 @@ def generar_lista_tracks(playlist_object: dict) -> list:
 
 def lista_a_csv(
     lista_de_elementos: list, file_name: str = "Lista", folder_name: str = ""
-):
-    """Crea un archivo CSV a partir de una lista. Opcionalmente se puede especificar la ruta de almacenamiento"""
+) -> str:
+    """Crea un archivo CSV a partir de una lista. Regresa la ruta del archivo generado."""
 
     try:
-        # Fecha de creación de archivo csv.
         if not isinstance(lista_de_elementos, list):
             raise TypeError
 
-        # Crear la carpeta si no existe
         if folder_name:
             os.makedirs(folder_name, exist_ok=True)
             print(f"\nLa carpeta {folder_name} fue creada exitosamente.")
@@ -112,6 +111,7 @@ def lista_a_csv(
             "%Y-%m-%d-%H-%M%z"
         )
         utc_file_path = f"{folder_name}/{file_name}({csv_creation_date_utc}).csv"
+        
         with open(file=utc_file_path, mode="w", newline="", encoding="utf-8") as file:
             writer = csv.writer(file)
             for elemento in lista_de_elementos:
@@ -119,27 +119,113 @@ def lista_a_csv(
                     writer.writerow(list(elemento.items()))
                 else:
                     writer.writerow(elemento)
+                    
+        print(f"\nEl archivo CSV '{utc_file_path}' ha sido creado.")
+        return utc_file_path  # Retornamos la ruta exacta para que el PDF use el mismo nombre y fecha
+        
     except TypeError:
         print(f"\nEl argumento lista_de_elementos no es del tipo 'list':{TypeError}")
+        return ""
     except Exception as e:
         print(f"\nError al crear archivo csv: type{e}, {e}")
-    else:
-        print(f"\nEl archivo '{utc_file_path}' ha sido creado.")
+        return ""
+    finally:
+        print(f"Función '{sys._getframe().f_code.co_name}' finalizada.\n")
+
+
+def lista_a_pdf(lista_de_elementos: list, csv_file_path: str):
+    """Crea un archivo PDF ordenado en la misma carpeta basándose en la ruta del CSV."""
+    if not csv_file_path or not lista_de_elementos:
+        print("No se pudo generar el PDF debido a datos vacíos o error en CSV.")
+        return
+
+    # Cambiamos la extensión .csv a .pdf para mantener exactamente la misma carpeta, nombre y marca de tiempo
+    pdf_file_path = csv_file_path.replace(".csv", ".pdf")
+
+    try:
+        # Separamos los metadatos de la playlist y las canciones
+        playlist_info = lista_de_elementos[0]
+        canciones = lista_de_elementos[2:] # Saltamos el diccionario y el encabezado crudo para procesarlo visualmente
+
+        # Inicializamos FPDF en orientación Horizontal (Landscape) para que quepan bien las columnas
+        pdf = FPDF(orientation="L", unit="mm", format="A4")
+        pdf.add_page()
+        pdf.set_auto_page_break(auto=True, margin=15)
+
+        # Título del Reporte
+        pdf.set_font("Helvetica", "B", 16)
+        pdf.cell(0, 10, f"Reporte de Playlist: {playlist_info.get('pl_title', 'Deezer')}", ln=True, align="L")
+        pdf.ln(4)
+
+        # Información General del encabezado
+        pdf.set_font("Helvetica", "", 10)
+        pdf.cell(0, 5, f"Creador: {playlist_info.get('pl_creator_name', 'N/A')}", ln=True)
+        pdf.cell(0, 5, f"Descripción: {playlist_info.get('pl_description', 'Sin descripción')}", ln=True)
+        pdf.cell(0, 5, f"Total de canciones extraídas: {playlist_info.get('pl_nb_track_objects', 0)}", ln=True)
+        pdf.ln(8)
+
+        # Configuración de la Tabla de Canciones
+        # Anchos definidos para que sumen el ancho total de una hoja A4 Horizontal (~275mm utilizables)
+        columnas = ["Rank", "ID Track", "Título de la Canción", "Duración (s)", "Explicit", "Artista", "Álbum"]
+        anchos = [15, 25, 65, 25, 18, 62, 62]
+
+        # Dibujar Encabezado de la Tabla
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_fill_color(240, 240, 240) # Fondo gris claro
+        for col, ancho in zip(columnas, anchos):
+            pdf.cell(ancho, 8, col, border=1, fill=True, align="C")
+        pdf.ln()
+
+        # Dibujar Datos de las Canciones
+        pdf.set_font("Helvetica", "", 9)
+        for fila in canciones:
+            # Estructura de 'fila': [rank, id, title, duration, explicit, time_add, artist_name, album_title]
+            # Omitimos 'time_add' (fila[5]) para no saturar el espacio horizontal del PDF
+            datos_limpios = [
+                str(fila[0]),
+                str(fila[1]),
+                str(fila[2]),
+                f"{fila[3]}s",
+                "Sí" if fila[4] else "No",
+                str(fila[6]),
+                str(fila[7])
+            ]
+
+            for dato, ancho in zip(datos_limpios, anchos):
+                # Sanitización rápida para evitar caracteres que rompan latin-1 (codificación por defecto de PDFs estándar)
+                dato_seguro = dato.encode("latin-1", "replace").decode("latin-1")
+                # Truncar textos demasiado largos para que no destruyan las celdas
+                if len(dato_seguro) > 33:
+                    dato_seguro = dato_seguro[:30] + "..."
+                pdf.cell(ancho, 7, dato_seguro, border=1)
+            pdf.ln()
+
+        # Guardar el archivo en disco
+        pdf.output(pdf_file_path)
+        print(f"El archivo PDF '{pdf_file_path}' ha sido creado exitosamente.")
+
+    except Exception as e:
+        print(f"Error al crear archivo PDF: type{e}, {e}")
     finally:
         print(f"Función '{sys._getframe().f_code.co_name}' finalizada.\n")
 
 
 if __name__ == "__main__":
+    # Recordatorio: Asegúrate de tener instalado fpdf2 en tu entorno virtual: pip install fpdf2
     id_playlist_top_50_mexico = "1111142361"
     playlist_object_top_50 = obtener_playlist_object(
         id_playlist=id_playlist_top_50_mexico, num=10
     )
     top_50_tracks_list = generar_lista_tracks(playlist_object=playlist_object_top_50)
-    print(
-        "\nGenerando CSV de Top 50 canciones diarias en Deezer mas escuchadas en México"
-    )
-    lista_a_csv(
+    
+    print("\nGenerando archivos de Top 50 canciones diarias en Deezer...")
+    
+    # 1. Creamos el CSV y capturamos su nombre/ruta exacta generada con la marca de tiempo
+    ruta_csv_final = lista_a_csv(
         lista_de_elementos=top_50_tracks_list,
         file_name="top-50-mexico-daily-by-deezer",
         folder_name="csv-files",
     )
+    
+    # 2. Generamos el PDF usando esa misma ruta dinámica
+    lista_a_pdf(lista_de_elementos=top_50_tracks_list, csv_file_path=ruta_csv_final)
