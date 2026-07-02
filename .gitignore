@@ -15,6 +15,7 @@ test*.*
 reportes/
 .cache
 csv_files/
+pdf-files/
 
 # IDEs
 .vscode/
