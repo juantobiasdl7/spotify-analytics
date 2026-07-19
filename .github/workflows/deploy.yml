@@ -12,8 +12,8 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VM_HOST }}
-          username: ${{ secrets.VM_USER }}
-          key: ${{ secrets.VM_SSH_KEY }}
+          username: ${{ secrets.VM_SYSTEM_USER }}
+          key: ${{ secrets.VM_SSH_KEY_SYSTEM_USER }}
           script: |
-            cd /home/clozano/gh-repositories/spotify-analytics
+            cd /srv/spotify-analytics
             git pull origin main
