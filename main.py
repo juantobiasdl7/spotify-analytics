@@ -109,7 +109,7 @@ def lista_a_csv(
         if folder_name:
             os.makedirs(folder_name, exist_ok=True)
             print(f"\nLa carpeta '{folder_name}' fue verificada/creada exitosamente.")
-
+        # Fecha de creación de archivo csv.
         csv_creation_date_utc = datetime.datetime.now(tz=datetime.UTC).strftime(
             "%Y-%m-%d-%H-%M%z"
         )
@@ -136,6 +136,9 @@ def lista_a_csv(
     except Exception as e:
         print(f"\nError al crear archivo csv: type{e}, {e}")
         return ""
+    else:
+        print(f"El archivo CSV '{utc_file_path}' ha sido creado.")
+        return utc_file_path
     finally:
         print(f"Función '{sys._getframe().f_code.co_name}' finalizada.\n")
 
