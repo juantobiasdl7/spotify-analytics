@@ -4,13 +4,17 @@ from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email import encoders
+from dotenv import load_dotenv
+
+# Carga las variables definidas en el archivo .env (en local)
+load_dotenv()
 
 def enviar_correo_con_adjunto():
     # 1. Configuración del servidor y credenciales
     smtp_server = "smtp.gmail.com"
     smtp_port = 587
-    remitente = "data9practice@gmail.com"
-    password = "ujjhmbbmwcfugurq"  # Contraseña de aplicación
+    remitente = os.getenv("EMAIL_USER")
+    password = os.getenv("EMAIL_PASS")  # Contraseña de aplicación
     
     # LISTA DE DESTINATARIOS
     destinatarios = [
